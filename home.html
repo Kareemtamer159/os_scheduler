@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Emulator interface</title>
+  <link rel="stylesheet" href="home.css" />
+</head>
+<style>
+  body{
+      background-image: url('hq720.jpg') ;
+      background-size: cover;
+      background-repeat: no-repeat;
+  }
+</style>
+<body>
+  <h1>Welcome to os scheduler Simulator</h1>
+  <div class="landing-container">
+    
+    <div class="options">
+      <button onclick="goToManual()">1.Manual data entry</button>
+      <button onclick="uploadFile()">2. Upload file.txt</button>
+      <input type="file" id="fileInput" accept=".txt" style="display:none" />
+      <button onclick="goToSimulator()">3. Go to semulator</button>
+    </div>
+  </div>
+  <script src="home.js"></script>
+</body>
+</html>
