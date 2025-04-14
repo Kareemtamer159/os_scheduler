@@ -28,7 +28,7 @@ function updateTable() {
   tbody.innerHTML = "";
   processes.forEach(p => {
     const row = document.createElement("tr");
-    row.innerHTML = `<td>${p.priority}</td><td>${p.burst}</td><td>${p.arrival}</td><td>${p.pid}</td>`;
+    row.innerHTML = <td>${p.priority}</td><td>${p.burst}</td><td>${p.arrival}</td><td>${p.pid}</td>;
     tbody.appendChild(row);
   });
 }
@@ -39,36 +39,35 @@ function simulate() {
   const resultDiv = document.getElementById("ganttChart");
   resultDiv.innerHTML = "";
 
-function generateTable(results) {
-  let totalTurnaround = 0;
-  let totalWaiting = 0;
-  let html = `<table border='1' class='result-table'>
-                <tr>
-                  <th>Waiting Time</th>
-                  <th>Turnaround Time</th>
-                  <th>End Time</th>
-                  <th>Start Time</th>
-                  <th>Process</th>
+  function generateTable(results) {
+    let totalTurnaround = 0;
+    let totalWaiting = 0;
+    let html = `<table border='1' class='result-table'>
+                  <tr>
+                    <th>Waiting Time</th>
+                    <th>Turnaround Time</th>
+                    <th>End Time</th>
+                    <th>Start Time</th>
+                    <th>Process</th>
+                  </tr>`;
+    results.forEach(p => {
+      totalTurnaround += p.turnaround;
+      totalWaiting += p.waiting;
+      html += `<tr>
+                  <td>${p.waiting}</td>
+                  <td>${p.turnaround}</td>
+                  <td>${p.end}</td>
+                  <td>${p.start}</td>
+                  <td>${p.pid}</td>
                 </tr>`;
-  results.forEach(p => {
-    totalTurnaround += p.turnaround;
-    totalWaiting += p.waiting;
-    html += `<tr>
-                <td>${p.waiting}</td>
-                <td>${p.turnaround}</td>
-                <td>${p.end}</td>
-                <td>${p.start}</td>
-                <td>${p.pid}</td>
-              </tr>`;
-  });
-  const avgTurnaround = (totalTurnaround / results.length).toFixed(2);
-  const avgWaiting = (totalWaiting / results.length).toFixed(2);
-  html += `</table><br>
-           <p><strong>Average Turnaround Time:</strong> ${avgTurnaround}</p>
-           <p><strong>Average Waiting Time:</strong> ${avgWaiting}</p>`;
-  return html;
-}
-
+    });
+    const avgTurnaround = (totalTurnaround / results.length).toFixed(2);
+    const avgWaiting = (totalWaiting / results.length).toFixed(2);
+    html += `</table><br>
+             <p><strong>Average Turnaround Time:</strong> ${avgTurnaround}</p>
+             <p><strong>Average Waiting Time:</strong> ${avgWaiting}</p>`;
+    return html;
+  }
 
   if (algo === "fcfs") {
     const sorted = [...processes].sort((a, b) => a.arrival - b.arrival);
@@ -85,30 +84,64 @@ function generateTable(results) {
     resultDiv.innerHTML = generateTable(results);
     drawGanttChart(results);
 
-
   } else if (algo === "sjf") {
-    const remaining = [...processes];
-    let currentTime = 0;
-    const results = [];
-    while (remaining.length > 0) {
-      const available = remaining.filter(p => p.arrival <= currentTime);
+    const remaining = processes.map(p => ({
+      ...p,
+      remaining: p.burst,
+      start: null,
+      end: null
+    }));
+
+    const executionLog = [];
+    let time = 0;
+    const completed = [];
+
+    while (completed.length < processes.length) {
+      const available = remaining.filter(p => p.arrival <= time && p.remaining > 0);
+
       if (available.length === 0) {
-        currentTime = Math.min(...remaining.map(p => p.arrival));
+        time += 1;
         continue;
       }
-      available.sort((a, b) => a.burst - b.burst);
-      const p = available[0];
-      const start = currentTime;
-      const end = start + p.burst;
+
+      available.sort((a, b) => a.remaining - b.remaining || a.arrival - b.arrival);
+      const current = available[0];
+
+      if (current.start === null) {
+        current.start = time;
+      }
+
+      current.remaining -= 1;
+      executionLog.push({ pid: current.pid, start: time, end: time + 1 });
+      time += 1;
+
+      if (current.remaining === 0) {
+        current.end = time;
+        completed.push(current);
+      }
+    }
+
+    const results = processes.map(p => {
+      const exec = executionLog.filter(e => e.pid === p.pid);
+      const start = exec[0].start;
+      const end = exec[exec.length - 1].end;
       const turnaround = end - p.arrival;
       const waiting = turnaround - p.burst;
-      results.push({ pid: p.pid, start, end, turnaround, waiting });
-      currentTime = end;
-      remaining.splice(remaining.indexOf(p), 1);
-    }
-    resultDiv.innerHTML = generateTable(results);
-    drawGanttChart(results);
+      return { pid: p.pid, start, end, turnaround, waiting };
+    });
 
+    const timeline = [];
+    for (let i = 0; i < executionLog.length; i++) {
+      const { pid, start, end } = executionLog[i];
+      if (timeline.length === 0 || timeline[timeline.length - 1].pid !== pid) {
+        timeline.push({ pid, start, end });
+      } else {
+        timeline[timeline.length - 1].end = end;
+      }
+    }
+
+    resultDiv.innerHTML = generateTable(results);
+    drawGanttChart(timeline);
 
   } else if (algo === "priority") {
     const remaining = [...processes];
@@ -120,7 +153,7 @@ function generateTable(results) {
         currentTime = Math.min(...remaining.map(p => p.arrival));
         continue;
       }
-      available.sort((a, b) => a.priority - b.priority);
+      available.sort((a, b) => b.priority-a.priority);
       const p = available[0];
       const start = currentTime;
       const end = start + p.burst;
@@ -133,7 +166,6 @@ function generateTable(results) {
     resultDiv.innerHTML = generateTable(results);
     drawGanttChart(results);
 
-
   } else if (algo === "rr") {
     const quantumTime = quantum;
     const queue = [...processes].sort((a, b) => a.arrival - b.arrival);
@@ -142,39 +174,36 @@ function generateTable(results) {
     const ganttBlocks = [];
     const remainingTime = {};
     queue.forEach(p => remainingTime[p.pid] = p.burst);
-  
+
     while (queue.length > 0 || readyQueue.length > 0) {
       while (queue.length > 0 && queue[0].arrival <= time) {
         readyQueue.push(queue.shift());
       }
-  
+
       if (readyQueue.length === 0) {
         time = queue[0].arrival;
         continue;
       }
-  
+
       const current = readyQueue.shift();
       const execStart = time;
       const execTime = Math.min(quantumTime, remainingTime[current.pid]);
       const execEnd = execStart + execTime;
-  
+
       ganttBlocks.push({ pid: current.pid, start: execStart, end: execEnd });
-  
+
       remainingTime[current.pid] -= execTime;
       time = execEnd;
-  
-      
+
       while (queue.length > 0 && queue[0].arrival <= time) {
         readyQueue.push(queue.shift());
       }
-  
-      
+
       if (remainingTime[current.pid] > 0) {
         readyQueue.push(current);
       }
     }
-  
-    
+
     const processMap = {};
     ganttBlocks.forEach(block => {
       if (!processMap[block.pid]) {
@@ -189,7 +218,7 @@ function generateTable(results) {
         processMap[block.pid].totalExecuted += block.end - block.start;
       }
     });
-  
+
     const results = Object.values(processMap).map(p => {
       const original = processes.find(pr => pr.pid === p.pid);
       const turnaround = p.end - original.arrival;
@@ -202,11 +231,10 @@ function generateTable(results) {
         waiting
       };
     });
-  
+
     resultDiv.innerHTML = generateTable(results);
     drawGanttChart(ganttBlocks);
   }
-  
 }
 
 function resetAll() {
@@ -229,7 +257,7 @@ function drawGanttChart(schedule) {
     block.style.backgroundColor = getColor(p.pid);
     block.style.padding = "5px";
     block.style.textAlign = "center";
-    block.innerHTML = `<strong>${p.pid}</strong><br><small>${p.end} <- ${p.start}</small>`;
+    block.innerHTML = <strong>${p.pid}</strong><br><small>${p.end} <- ${p.start}</small>;
     container.appendChild(block);
   });
 
